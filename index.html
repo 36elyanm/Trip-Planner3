@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voyage Pro | Liquid Glass Edition</title>
+    <script src="https://tailwindcss.com"></script>
+    <script src="https://unpkg.com"></script>
+    <script src="https://unpkg.com"></script>
+    <script src="https://unpkg.com"></script>
+    <style>
+        :root { 
+            --font-main: -apple-system, "SF Pro Display", sans-serif;
+            --liquid-bg: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #312e81 100%);
+        }
+        body { 
+            font-family: var(--font-main); margin: 0; overflow: hidden; 
+            background: var(--liquid-bg); color: #fff;
+        }
+        /* Liquid Glass effect: Ultra-translucent with dynamic refraction */
+        .liquid-glass {
+            background: rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(40px) saturate(180%);
+            -webkit-backdrop-filter: blur(40px) saturate(180%);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 32px;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+        }
+        .full-app { height: 100vh; width: 100vw; display: flex; flex-direction: column; position: relative; }
+        .sidebar { width: 360px; padding: 2rem; display: flex; flex-direction: column; gap: 2rem; z-index: 10; }
+        .main-content { flex: 1; padding: 3rem; overflow-y: auto; z-index: 5; }
+        .currency-pill {
+            padding: 8px 16px; border-radius: 20px; font-weight: 600; font-size: 0.75rem;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .active-pill { background: #007AFF; color: white; box-shadow: 0 0 20px rgba(0,122,255,0.4); }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+    <script type="text/babel">
+        const { useState, useEffect, useMemo } = React;
+
+        const EXCHANGE_RATES = { USD: 1, EUR: 0.92, GBP: 0.79 };
+
+        function App() {
+            const [isLoggedIn, setIsLoggedIn] = useState(false);
+            const [events, setEvents] = useState([]);
+            const [currency, setCurrency] = useState('USD');
+            const [search, setSearch] = useState('');
+
+            useEffect(() => {
+                const saved = localStorage.getItem('voyage_events');
+                if (saved) setEvents(JSON.parse(saved));
+                if (localStorage.getItem('voyage_remember')) setIsLoggedIn(true);
+            }, []);
+
+            const addEvent = (e) => {
+                const newEvents = [...events, { ...e, id: Date.now() }];
+                setEvents(newEvents);
+                localStorage.setItem('voyage_events', JSON.stringify(newEvents));
+            };
+
+            const filteredEvents = events.filter(e => e.title.toLowerCase().includes(search.toLowerCase()));
+
+            const totalInCurrency = useMemo(() => {
+                const usdTotal = filteredEvents.reduce((sum, e) => sum + (parseInt(e.price.replace(/[^0-9]/g, '')) || 0), 0);
+                return (usdTotal * EXCHANGE_RATES[currency]).toLocaleString(undefined, { style: 'currency', currency });
+            }, [filteredEvents, currency]);
+
+            if (!isLoggedIn) return <Login onLogin={() => setIsLoggedIn(true)} />;
+
+            return (
+                <div className="full-app">
+                    <header className="h-20 flex items-center justify-between px-10 backdrop-blur-xl border-b border-white/10">
+                        <div className="flex items-center gap-4">
+                            <span className="text-2xl font-black tracking-tighter">VOYAGE PRO</span>
+                            <input 
+                                type="text" placeholder="Find event..." 
+                                className="bg-white/5 border border-white/10 rounded-full px-6 py-2 text-sm outline-none focus:ring-2 ring-blue-500 w-64 transition-all"
+                                onChange={(e) => setSearch(e.target.value)}
+                            />
+                        </div>
+                        <div className="flex gap-2 p-1 bg-white/5 rounded-full border border-white/10">
+                            {['USD', 'EUR', 'GBP'].map(c => (
+                                <button 
+                                    key={c} onClick={() => setCurrency(c)}
+                                    className={`currency-pill ${currency === c ? 'active-pill' : 'opacity-40 hover:opacity-100'}`}
+                                >
+                                    {c}
+                                </button>
+                            ))}
+                        </div>
+                    </header>
+
+                    <div className="flex-1 flex overflow-hidden">
+                        <aside className="sidebar">
+                            <div className="liquid-glass p-8 space-y-6">
+                                <h2 className="text-[10px] font-bold tracking-[0.2em] uppercase opacity-40">Dynamic Entry</h2>
+                                <SmartInput onAdd={addEvent} />
+                            </div>
+                            
+                            <div className="liquid-glass p-8 mt-auto">
+                                <div className="text-[10px] font-bold opacity-40 uppercase tracking-widest mb-2">Total Budget ({currency})</div>
+                                <div className="text-4xl font-black text-blue-400 drop-shadow-lg">{totalInCurrency}</div>
+                                <div className="mt-2 text-[11px] font-medium opacity-30 italic">Real-time conversion applied</div>
+                            </div>
+                        </aside>
+
+                        <main className="main-content">
+                            <div className="grid grid-cols-1 gap-6 max-w-4xl mx-auto">
+                                {filteredEvents.map(e => (
+                                    <div key={e.id} className="liquid-glass p-8 flex justify-between items-center group hover:scale-[1.02] transition-transform">
+                                        <div className="flex items-center gap-6">
+                                            <div className="w-14 h-14 rounded-2xl bg-blue-500/20 flex items-center justify-center text-2xl">
+                                                {e.type === 'Flight' ? '✈️' : e.type === 'Hotel' ? '🏨' : '🍽️'}
+                                            </div>
+                                            <div>
+                                                <h3 className="text-xl font-bold">{e.title}</h3>
+                                                <p className="text-sm opacity-40 font-semibold">{e.date}</p>
+                                            </div>
+                                        </div>
+                                        <div className="text-right">
+                                            <div className="text-2xl font-bold">
+                                                {( (parseInt(e.price.replace(/[^0-9]/g, '')) || 0) * EXCHANGE_RATES[currency]).toLocaleString(undefined, { style: 'currency', currency })}
+                                            </div>
+                                            <a href={`https://google.com{e.title}`} target="_blank" className="text-[10px] font-black text-blue-400 hover:underline uppercase">Book via Google</a>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </main>
+                    </div>
+                </div>
+            );
+        }
+
+        function SmartInput({ onAdd }) {
+            const [val, setVal] = useState('');
+            const submit = () => {
+                if(!val) return;
+                const type = val.toLowerCase().includes('flight') ? 'Flight' : val.toLowerCase().includes('hotel') ? 'Hotel' : 'Eat';
+                const priceMatch = val.match(/\$\d+/);
+                const dMatch = val.match(/\b([1-9]|[0-9]|3)\b/);
+                const d = new Date(); d.setDate(dMatch ? parseInt(dMatch) : d.getDate());
+                onAdd({ title: val, date: d.toISOString().split('T')[0], type, price: priceMatch ? priceMatch[0] : '$0' });
+                setVal('');
+            };
+            return (
+                <div className="space-y-4">
+                    <textarea value={val} onChange={e => setVal(e.target.value)} placeholder="Flight to Paris on 15 $600" className="w-full h-32 bg-transparent outline-none text-sm resize-none italic opacity-80" />
+                    <button onClick={submit} className="w-full py-4 bg-white text-black font-bold rounded-2xl hover:scale-95 transition-transform">Add Event</button>
+                </div>
+            );
+        }
+
+        function Login({ onLogin }) {
+            return (
+                <div className="h-screen w-screen flex items-center justify-center p-10">
+                    <div className="liquid-glass p-16 w-full max-w-md text-center border-white/20">
+                        <h1 className="text-4xl font-black tracking-tighter mb-2">VOYAGE</h1>
+                        <p className="text-sm opacity-40 mb-10">Sign in with your Apple ID</p>
+                        <div className="space-y-4 mb-8">
+                            <input type="text" placeholder="Username" className="w-full p-5 rounded-2xl bg-white/5 border border-white/10 outline-none" />
+                            <input type="password" placeholder="Password" className="w-full p-5 rounded-2xl bg-white/5 border border-white/10 outline-none" />
+                        </div>
+                        <button onClick={onLogin} className="w-full py-5 bg-blue-500 text-white font-black rounded-3xl text-xl shadow-2xl shadow-blue-500/40">Continue</button>
+                    </div>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
